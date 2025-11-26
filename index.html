@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de Gráficos de Ventas</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Open Sans', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        h1 {
+            font-family: 'Montserrat', sans-serif;
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+            max-width: 1200px;
+        }
+        
+        .control-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: inline-block;
+            font-weight: 600;
+            margin-right: 10px;
+            font-size: 14px;
+        }
+        
+        input[type="checkbox"] {
+            margin-right: 5px;
+            cursor: pointer;
+        }
+        
+        .chart-container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            width: 1200px;
+            height: 800px;
+        }
+        
+        canvas {
+            max-width: 100%;
+            max-height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <h1>Análisis de Ventas Mensuales</h1>
+    
+    <div class="controls">
+        <div class="control-group">
+            <label>
+                <input type="checkbox" id="showLabels" checked>
+                Mostrar etiquetas de valores en el año más reciente (2025)
+            </label>
+        </div>
+    </div>
+    
+    <div class="chart-container">
+        <canvas id="salesChart"></canvas>
+    </div>
+
+    <script>
+        // ==================== CONFIGURACIÓN DE COLORES ====================
+        // Colores de las barras por año (formato hexadecimal)
+        const barColors = {
+            year2023: '#3B82F6',  // Azul para 2023
+            year2024: '#10B981',  // Verde para 2024
+            year2025: '#F59E0B'   // Naranja para 2025
+        };
+        
+        // Colores del gráfico
+        const chartColors = {
+            gridLines: '#E5E7EB',        // Color de las líneas de la grilla
+            border: '#D1D5DB',           // Color del borde del gráfico
+            axisText: '#374151',         // Color de los textos de los ejes
+            axisLabels: '#1F2937',       // Color de los nombres de los ejes
+            valueLabels: '#111827',      // Color de las etiquetas de valores
+            chartTitle: '#111827'        // Color del título del gráfico
+        };
+        
+        // ==================== CONFIGURACIÓN DE FORMATO DE VALORES ====================
+        // Opciones de formato:
+        // 'COP' - Pesos colombianos
+        // 'USD' - Dólares estadounidenses
+        // 'thousands' - Mostrar en miles (K)
+        // 'millions' - Mostrar en millones (M)
+        // 'none' - Mostrar valor completo sin formato
+        
+        const valueFormat = 'COP';  // Cambiar aquí el formato deseado
+        
+        // Función para formatear valores según la configuración
+        function formatValue(value) {
+            switch(valueFormat) {
+                case 'COP':
+                    return new Intl.NumberFormat('es-CO', {
+                        style: 'currency',
+                        currency: 'COP',
+                        minimumFractionDigits: 0
+                    }).format(value);
+                    
+                case 'USD':
+                    return new Intl.NumberFormat('en-US', {
+                        style: 'currency',
+                        currency: 'USD',
+                        minimumFractionDigits: 0
+                    }).format(value);
+                    
+                case 'thousands':
+                    return (value / 1000).toFixed(1) + 'K';
+                    
+                case 'millions':
+                    return (value / 1000000).toFixed(2) + 'M';
+                    
+                default:
+                    return value.toLocaleString('es-CO');
+            }
+        }
+        
+        // ==================== DATOS DE VENTAS ====================
+        // Datos de ejemplo: ventas mensuales de e-commerce en Colombia
+        // Valores en pesos colombianos (COP)
+        
+        const monthNames = [
+            'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+            'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+        ];
+        
+        // Ventas por año (en millones de pesos colombianos)
+        const salesData = {
+            year2023: [45000000, 42000000, 48000000, 52000000, 55000000, 58000000,
+                      62000000, 60000000, 63000000, 68000000, 75000000, 85000000],
+            year2024: [50000000, 48000000, 55000000, 58000000, 62000000, 66000000,
+                      70000000, 68000000, 72000000, 78000000, 88000000, 98000000],
+            year2025: [58000000, 55000000, 63000000, 67000000, 72000000, 76000000,
+                      82000000, 80000000, 85000000, 92000000, 102000000, 115000000]
+        };
+        
+        // ==================== CONFIGURACIÓN DEL GRÁFICO ====================
+        const ctx = document.getElementById('salesChart').getContext('2d');
+        let showLabels = true;
+        
+        // Plugin personalizado para mostrar etiquetas solo en el año más reciente
+        const labelPlugin = {
+            id: 'customLabels',
+            afterDatasetsDraw(chart) {
+                if (!showLabels) return;
+                
+                const { ctx, scales: { x, y } } = chart;
+                const lastDatasetIndex = chart.data.datasets.length - 1;
+                
+                ctx.save();
+                ctx.font = '600 12px "Open Sans"';
+                ctx.fillStyle = chartColors.valueLabels;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                
+                chart.data.datasets[lastDatasetIndex].data.forEach((value, index) => {
+                    const meta = chart.getDatasetMeta(lastDatasetIndex);
+                    const bar = meta.data[index];
+                    
+                    if (bar) {
+                        ctx.fillText(
+                            formatValue(value),
+                            bar.x,
+                            bar.y - 5
+                        );
+                    }
+                });
+                
+                ctx.restore();
+            }
+        };
+        
+        // Configuración del gráfico
+        const chartConfig = {
+            type: 'bar',
+            data: {
+                labels: monthNames,
+                datasets: [
+                    {
+                        label: '2023',
+                        data: salesData.year2023,
+                        backgroundColor: barColors.year2023,
+                        borderColor: barColors.year2023,
+                        borderWidth: 0,
+                        borderRadius: 4
+                    },
+                    {
+                        label: '2024',
+                        data: salesData.year2024,
+                        backgroundColor: barColors.year2024,
+                        borderColor: barColors.year2024,
+                        borderWidth: 0,
+                        borderRadius: 4
+                    },
+                    {
+                        label: '2025',
+                        data: salesData.year2025,
+                        backgroundColor: barColors.year2025,
+                        borderColor: barColors.year2025,
+                        borderWidth: 0,
+                        borderRadius: 4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            font: {
+                                family: 'Open Sans',
+                                size: 14,
+                                weight: '600'
+                            },
+                            color: chartColors.axisLabels,
+                            padding: 20,
+                            usePointStyle: true,
+                            pointStyle: 'rectRounded'
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Comparativo de Ventas Mensuales - E-commerce Colombia',
+                        font: {
+                            family: 'Montserrat',
+                            size: 24,
+                            weight: '700'
+                        },
+                        color: chartColors.chartTitle,
+                        padding: {
+                            top: 10,
+                            bottom: 30
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleFont: {
+                            family: 'Open Sans',
+                            size: 14,
+                            weight: '600'
+                        },
+                        bodyFont: {
+                            family: 'Open Sans',
+                            size: 13
+                        },
+                        padding: 12,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + formatValue(context.parsed.y);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        border: {
+                            color: chartColors.border,
+                            width: 2
+                        },
+                        ticks: {
+                            font: {
+                                family: 'Open Sans',
+                                size: 13,
+                                weight: '600'
+                            },
+                            color: chartColors.axisText
+                        },
+                        title: {
+                            display: true,
+                            text: 'Meses del Año',
+                            font: {
+                                family: 'Open Sans',
+                                size: 16,
+                                weight: '600'
+                            },
+                            color: chartColors.axisLabels,
+                            padding: {
+                                top: 15
+                            }
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: chartColors.gridLines,
+                            drawBorder: false
+                        },
+                        border: {
+                            color: chartColors.border,
+                            width: 2
+                        },
+                        ticks: {
+                            font: {
+                                family: 'Open Sans',
+                                size: 12
+                            },
+                            color: chartColors.axisText,
+                            callback: function(value) {
+                                return formatValue(value);
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Total de Ventas',
+                            font: {
+                                family: 'Open Sans',
+                                size: 16,
+                                weight: '600'
+                            },
+                            color: chartColors.axisLabels,
+                            padding: {
+                                bottom: 15
+                            }
+                        }
+                    }
+                },
+                barPercentage: 0.8,
+                categoryPercentage: 0.9
+            },
+            plugins: [labelPlugin]
+        };
+        
+        // Crear el gráfico
+        const salesChart = new Chart(ctx, chartConfig);
+        
+        // ==================== CONTROLES INTERACTIVOS ====================
+        // Control para mostrar/ocultar etiquetas
+        document.getElementById('showLabels').addEventListener('change', function(e) {
+            showLabels = e.target.checked;
+            salesChart.update();
+        });
+    </script>
+</body>
+</html>
