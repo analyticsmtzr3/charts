@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gráfico de Ventas vs Meta</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Open Sans', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        h1 {
+            font-family: 'Montserrat', sans-serif;
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+            max-width: 1200px;
+        }
+        
+        .control-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: inline-block;
+            font-weight: 600;
+            margin-right: 10px;
+            font-size: 14px;
+        }
+        
+        input[type="checkbox"] {
+            margin-right: 5px;
+            cursor: pointer;
+        }
+        
+        .chart-container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            width: 1200px;
+            height: 800px;
+        }
+        
+        canvas {
+            max-width: 100%;
+            max-height: 100%;
+        }
+        
+        .stats {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            margin-top: 20px;
+            max-width: 1200px;
+            display: flex;
+            justify-content: space-around;
+            gap: 20px;
+        }
+        
+        .stat-card {
+            text-align: center;
+            padding: 15px;
+            flex: 1;
+        }
+        
+        .stat-value {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            color: #6B7280;
+        }
+        
+        .positive {
+            color: #10B981;
+        }
+        
+        .negative {
+            color: #EF4444;
+        }
+    </style>
+</head>
+<body>
+    <h1>Ventas vs Meta Mensual 2025</h1>
+    
+    <div class="controls">
+        <div class="control-group">
+            <label>
+                <input type="checkbox" id="showBarLabels" checked>
+                Mostrar etiquetas de valores en las barras
+            </label>
+        </div>
+        <div class="control-group">
+            <label>
+                <input type="checkbox" id="showGoalLabels" checked>
+                Mostrar etiquetas de meta
+            </label>
+        </div>
+    </div>
+    
+    <div class="chart-container">
+        <canvas id="salesGoalChart"></canvas>
+    </div>
+    
+    <div class="stats">
+        <div class="stat-card">
+            <div class="stat-value" id="totalSales">$0</div>
+            <div class="stat-label">Total Ventas 2025</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="totalGoal">$0</div>
+            <div class="stat-label">Meta Total Anual</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="achievement">0%</div>
+            <div class="stat-label">Cumplimiento</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="difference">$0</div>
+            <div class="stat-label">Diferencia</div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== CONFIGURACIÓN DE COLORES ====================
+        // Color de las barras de ventas
+        const barColor = '#3B82F6';  // Azul para las ventas
+        
+        // Color de la línea de meta (punteada)
+        const goalLineColor = '#EF4444';  // Rojo para la meta
+        
+        // Colores del gráfico
+        const chartColors = {
+            gridLines: '#E5E7EB',        // Color de las líneas de la grilla
+            border: '#D1D5DB',           // Color del borde del gráfico
+            axisText: '#374151',         // Color de los textos de los ejes
+            axisLabels: '#1F2937',       // Color de los nombres de los ejes
+            valueLabels: '#111827',      // Color de las etiquetas de valores
+            goalLabels: '#B91C1C',       // Color de las etiquetas de meta
+            chartTitle: '#111827'        // Color del título del gráfico
+        };
+        
+        // ==================== CONFIGURACIÓN DE FORMATO DE VALORES ====================
+        // Opciones de formato:
+        // 'COP' - Pesos colombianos
+        // 'USD' - Dólares estadounidenses
+        // 'thousands' - Mostrar en miles (K)
+        // 'millions' - Mostrar en millones (M)
+        // 'none' - Mostrar valor completo sin formato
+        
+        const valueFormat = 'COP';  // Cambiar aquí el formato deseado
+        
+        // Función para formatear valores según la configuración
+        function formatValue(value) {
+            switch(valueFormat) {
+                case 'COP':
+                    return new Intl.NumberFormat('es-CO', {
+                        style: 'currency',
+                        currency: 'COP',
+                        minimumFractionDigits: 0
+                    }).format(value);
+                    
+                case 'USD':
+                    return new Intl.NumberFormat('en-US', {
+                        style: 'currency',
+                        currency: 'USD',
+                        minimumFractionDigits: 0
+                    }).format(value);
+                    
+                case 'thousands':
+                    return (value / 1000).toFixed(1) + 'K';
+                    
+                case 'millions':
+                    return (value / 1000000).toFixed(2) + 'M';
+                    
+                default:
+                    return value.toLocaleString('es-CO');
+            }
+        }
+        
+        // ==================== DATOS DE VENTAS Y METAS ====================
+        // Datos de ejemplo: ventas mensuales vs meta de e-commerce en Colombia 2025
+        // Valores en pesos colombianos (COP)
+        
+        const monthNames = [
+            'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+            'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+        ];
+        
+        // Ventas reales del año 2025
+        const actualSales = [
+            58000000, 55000000, 63000000, 67000000, 72000000, 76000000,
+            82000000, 80000000, 85000000, 92000000, 102000000, 115000000
+        ];
+        
+        // Meta mensual (línea punteada roja)
+        // Puedes ajustar estos valores según tus necesidades
+        const monthlyGoals = [
+            60000000, 60000000, 65000000, 65000000, 70000000, 75000000,
+            80000000, 85000000, 85000000, 90000000, 100000000, 110000000
+        ];
+        
+        // ==================== CÁLCULO DE ESTADÍSTICAS ====================
+        const totalSales = actualSales.reduce((sum, val) => sum + val, 0);
+        const totalGoal = monthlyGoals.reduce((sum, val) => sum + val, 0);
+        const achievement = ((totalSales / totalGoal) * 100).toFixed(1);
+        const difference = totalSales - totalGoal;
+        
+        // Actualizar tarjetas de estadísticas
+        document.getElementById('totalSales').textContent = formatValue(totalSales);
+        document.getElementById('totalGoal').textContent = formatValue(totalGoal);
+        document.getElementById('achievement').textContent = achievement + '%';
+        document.getElementById('achievement').className = 'stat-value ' + (achievement >= 100 ? 'positive' : 'negative');
+        document.getElementById('difference').textContent = formatValue(Math.abs(difference));
+        document.getElementById('difference').className = 'stat-value ' + (difference >= 0 ? 'positive' : 'negative');
+        
+        // ==================== CONFIGURACIÓN DEL GRÁFICO ====================
+        const ctx = document.getElementById('salesGoalChart').getContext('2d');
+        let showBarLabels = true;
+        let showGoalLabels = true;
+        
+        // Plugin personalizado para mostrar etiquetas
+        const labelPlugin = {
+            id: 'customLabels',
+            afterDatasetsDraw(chart) {
+                const { ctx, scales: { x, y } } = chart;
+                ctx.save();
+                
+                // Etiquetas de barras
+                if (showBarLabels) {
+                    const barMeta = chart.getDatasetMeta(0);
+                    ctx.font = '600 12px "Open Sans"';
+                    ctx.fillStyle = chartColors.valueLabels;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'bottom';
+                    
+                    actualSales.forEach((value, index) => {
+                        const bar = barMeta.data[index];
+                        if (bar) {
+                            ctx.fillText(
+                                formatValue(value),
+                                bar.x,
+                                bar.y - 5
+                            );
+                        }
+                    });
+                }
+                
+                // Etiquetas de meta (línea)
+                if (showGoalLabels) {
+                    const lineMeta = chart.getDatasetMeta(1);
+                    ctx.font = '600 11px "Open Sans"';
+                    ctx.fillStyle = chartColors.goalLabels;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'top';
+                    
+                    monthlyGoals.forEach((value, index) => {
+                        const point = lineMeta.data[index];
+                        if (point) {
+                            // Dibujar fondo blanco detrás del texto
+                            const text = formatValue(value);
+                            const metrics = ctx.measureText(text);
+                            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                            ctx.fillRect(
+                                point.x - metrics.width / 2 - 3,
+                                point.y + 5,
+                                metrics.width + 6,
+                                14
+                            );
+                            
+                            // Dibujar texto
+                            ctx.fillStyle = chartColors.goalLabels;
+                            ctx.fillText(text, point.x, point.y + 8);
+                        }
+                    });
+                }
+                
+                ctx.restore();
+            }
+        };
+        
+        // Configuración del gráfico
+        const chartConfig = {
+            type: 'bar',
+            data: {
+                labels: monthNames,
+                datasets: [
+                    {
+                        label: 'Ventas Reales',
+                        data: actualSales,
+                        backgroundColor: barColor,
+                        borderColor: barColor,
+                        borderWidth: 0,
+                        borderRadius: 6,
+                        type: 'bar',
+                        order: 2
+                    },
+                    {
+                        label: 'Meta Mensual',
+                        data: monthlyGoals,
+                        borderColor: goalLineColor,
+                        backgroundColor: 'transparent',
+                        borderWidth: 3,
+                        borderDash: [10, 5],
+                        pointRadius: 5,
+                        pointBackgroundColor: goalLineColor,
+                        pointBorderColor: '#FFFFFF',
+                        pointBorderWidth: 2,
+                        pointHoverRadius: 7,
+                        type: 'line',
+                        order: 1,
+                        tension: 0.3
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            font: {
+                                family: 'Open Sans',
+                                size: 14,
+                                weight: '600'
+                            },
+                            color: chartColors.axisLabels,
+                            padding: 20,
+                            usePointStyle: true,
+                            pointStyle: 'circle'
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Análisis de Cumplimiento de Metas - E-commerce 2025',
+                        font: {
+                            family: 'Montserrat',
+                            size: 24,
+                            weight: '700'
+                        },
+                        color: chartColors.chartTitle,
+                        padding: {
+                            top: 10,
+                            bottom: 30
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleFont: {
+                            family: 'Open Sans',
+                            size: 14,
+                            weight: '600'
+                        },
+                        bodyFont: {
+                            family: 'Open Sans',
+                            size: 13
+                        },
+                        padding: 12,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label + ': ' + formatValue(context.parsed.y);
+                                
+                                // Agregar porcentaje de cumplimiento en las barras
+                                if (context.datasetIndex === 0) {
+                                    const percentage = ((context.parsed.y / monthlyGoals[context.dataIndex]) * 100).toFixed(1);
+                                    label += ' (' + percentage + '% de la meta)';
+                                }
+                                
+                                return label;
+                            },
+                            afterBody: function(context) {
+                                if (context[0].datasetIndex === 0) {
+                                    const diff = actualSales[context[0].dataIndex] - monthlyGoals[context[0].dataIndex];
+                                    const diffText = diff >= 0 ? 
+                                        '✓ Superó la meta en ' + formatValue(Math.abs(diff)) :
+                                        '✗ Faltó ' + formatValue(Math.abs(diff)) + ' para la meta';
+                                    return '\n' + diffText;
+                                }
+                                return '';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        border: {
+                            color: chartColors.border,
+                            width: 2
+                        },
+                        ticks: {
+                            font: {
+                                family: 'Open Sans',
+                                size: 13,
+                                weight: '600'
+                            },
+                            color: chartColors.axisText
+                        },
+                        title: {
+                            display: true,
+                            text: 'Meses del Año',
+                            font: {
+                                family: 'Open Sans',
+                                size: 16,
+                                weight: '600'
+                            },
+                            color: chartColors.axisLabels,
+                            padding: {
+                                top: 15
+                            }
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: chartColors.gridLines,
+                            drawBorder: false
+                        },
+                        border: {
+                            color: chartColors.border,
+                            width: 2
+                        },
+                        ticks: {
+                            font: {
+                                family: 'Open Sans',
+                                size: 12
+                            },
+                            color: chartColors.axisText,
+                            callback: function(value) {
+                                return formatValue(value);
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Ventas Mensuales',
+                            font: {
+                                family: 'Open Sans',
+                                size: 16,
+                                weight: '600'
+                            },
+                            color: chartColors.axisLabels,
+                            padding: {
+                                bottom: 15
+                            }
+                        }
+                    }
+                },
+                barPercentage: 0.7,
+                categoryPercentage: 0.8
+            },
+            plugins: [labelPlugin]
+        };
+        
+        // Crear el gráfico
+        const salesGoalChart = new Chart(ctx, chartConfig);
+        
+        // ==================== CONTROLES INTERACTIVOS ====================
+        // Control para mostrar/ocultar etiquetas de barras
+        document.getElementById('showBarLabels').addEventListener('change', function(e) {
+            showBarLabels = e.target.checked;
+            salesGoalChart.update();
+        });
+        
+        // Control para mostrar/ocultar etiquetas de meta
+        document.getElementById('showGoalLabels').addEventListener('change', function(e) {
+            showGoalLabels = e.target.checked;
+            salesGoalChart.update();
+        });
+    </script>
+</body>
+</html>

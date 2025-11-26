@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Participación por Categoría</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Open Sans', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        h1 {
+            font-family: 'Montserrat', sans-serif;
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+            max-width: 1200px;
+        }
+        
+        .control-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: inline-block;
+            font-weight: 600;
+            margin-right: 10px;
+            font-size: 14px;
+        }
+        
+        input[type="checkbox"] {
+            margin-right: 5px;
+            cursor: pointer;
+        }
+        
+        .chart-container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            width: 1200px;
+            height: 800px;
+        }
+        
+        canvas {
+            max-width: 100%;
+            max-height: 100%;
+        }
+        
+        .table-container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            margin-top: 20px;
+            max-width: 1200px;
+            width: 100%;
+        }
+        
+        h2 {
+            font-family: 'Montserrat', sans-serif;
+            color: #111827;
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: 'Open Sans', sans-serif;
+        }
+        
+        thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #E5E7EB;
+            font-size: 14px;
+        }
+        
+        tbody tr:hover {
+            background: #F9FAFB;
+        }
+        
+        .category-name {
+            font-weight: 600;
+            color: #1F2937;
+        }
+        
+        .year-value {
+            color: #6B7280;
+            text-align: center;
+        }
+        
+        .change-cell {
+            text-align: center;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+        
+        .positive {
+            color: #10B981;
+        }
+        
+        .negative {
+            color: #EF4444;
+        }
+        
+        .neutral {
+            color: #6B7280;
+        }
+        
+        .arrow {
+            font-size: 16px;
+            font-weight: bold;
+        }
+        
+        .category-color {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+    <h1>Participación de Ventas por Categoría</h1>
+    
+    <div class="controls">
+        <div class="control-group">
+            <label>
+                <input type="checkbox" id="showLabels" checked>
+                Mostrar etiquetas en segmentos mayores al 20%
+            </label>
+        </div>
+    </div>
+    
+    <div class="chart-container">
+        <canvas id="categoryChart"></canvas>
+    </div>
+    
+    <div class="table-container">
+        <h2>Evolución de Participación por Categoría</h2>
+        <table id="categoryTable">
+            <thead>
+                <tr>
+                    <th>Categoría</th>
+                    <th style="text-align: center;">2023</th>
+                    <th style="text-align: center;">2024</th>
+                    <th style="text-align: center;">2025</th>
+                    <th style="text-align: center;">Cambio 2024-2025</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        // ==================== CONFIGURACIÓN DE COLORES ====================
+        // Colores para cada categoría (5 categorías)
+        const categoryColors = {
+            category1: '#3B82F6',  // Azul - Electrónica
+            category2: '#10B981',  // Verde - Moda y Accesorios
+            category3: '#F59E0B',  // Naranja - Hogar y Decoración
+            category4: '#8B5CF6',  // Púrpura - Deportes y Fitness
+            category5: '#EC4899'   // Rosa - Belleza y Cuidado Personal
+        };
+        
+        // Colores del gráfico
+        const chartColors = {
+            gridLines: '#E5E7EB',        // Color de las líneas de la grilla
+            border: '#D1D5DB',           // Color del borde del gráfico
+            axisText: '#374151',         // Color de los textos de los ejes
+            axisLabels: '#1F2937',       // Color de los nombres de los ejes
+            valueLabels: '#FFFFFF',      // Color de las etiquetas de valores (blanco para contrastar)
+            chartTitle: '#111827'        // Color del título del gráfico
+        };
+        
+        // ==================== DATOS DE PARTICIPACIÓN POR CATEGORÍA ====================
+        // Nombres de las categorías
+        const categories = [
+            'Electrónica',
+            'Moda y Accesorios',
+            'Hogar y Decoración',
+            'Deportes y Fitness',
+            'Belleza y Cuidado Personal'
+        ];
+        
+        // Porcentajes de participación por año (deben sumar 100% por año)
+        // Valores en porcentaje (%)
+        const participationData = {
+            year2023: [35, 28, 18, 12, 7],   // Total: 100%
+            year2024: [32, 30, 20, 10, 8],   // Total: 100%
+            year2025: [30, 25, 22, 15, 8]    // Total: 100%
+        };
+        
+        const years = ['2023', '2024', '2025'];
+        
+        // Umbral mínimo para mostrar etiquetas (en porcentaje)
+        const labelThreshold = 20;  // Cambiar aquí para ajustar el umbral
+        
+        // ==================== CÁLCULO DE CAMBIOS ====================
+        function calculateChange(category, year1Data, year2Data) {
+            return year2Data - year1Data;
+        }
+        
+        // ==================== CONSTRUCCIÓN DE LA TABLA ====================
+        function buildTable() {
+            const tableBody = document.getElementById('tableBody');
+            const colorsArray = Object.values(categoryColors);
+            
+            categories.forEach((category, index) => {
+                const val2023 = participationData.year2023[index];
+                const val2024 = participationData.year2024[index];
+                const val2025 = participationData.year2025[index];
+                const change = calculateChange(category, val2024, val2025);
+                
+                let changeClass = 'neutral';
+                let arrow = '●';
+                
+                if (change > 0) {
+                    changeClass = 'positive';
+                    arrow = '▲';
+                } else if (change < 0) {
+                    changeClass = 'negative';
+                    arrow = '▼';
+                }
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="category-name">
+                        <span class="category-color" style="background-color: ${colorsArray[index]};"></span>
+                        ${category}
+                    </td>
+                    <td class="year-value">${val2023.toFixed(1)}%</td>
+                    <td class="year-value">${val2024.toFixed(1)}%</td>
+                    <td class="year-value">${val2025.toFixed(1)}%</td>
+                    <td>
+                        <div class="change-cell ${changeClass}">
+                            <span class="arrow">${arrow}</span>
+                            <span>${change > 0 ? '+' : ''}${change.toFixed(1)}%</span>
+                        </div>
+                    </td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+        }
+        
+        // Construir tabla al cargar
+        buildTable();
+        
+        // ==================== CONFIGURACIÓN DEL GRÁFICO ====================
+        const ctx = document.getElementById('categoryChart').getContext('2d');
+        let showLabels = true;
+        
+        // Preparar datasets para Chart.js
+        const datasets = categories.map((category, index) => {
+            const colorsArray = Object.values(categoryColors);
+            return {
+                label: category,
+                data: [
+                    participationData.year2023[index],
+                    participationData.year2024[index],
+                    participationData.year2025[index]
+                ],
+                backgroundColor: colorsArray[index],
+                borderColor: colorsArray[index],
+                borderWidth: 0
+            };
+        });
+        
+        // Plugin personalizado para mostrar etiquetas en segmentos mayores al umbral
+        const labelPlugin = {
+            id: 'customStackedLabels',
+            afterDatasetsDraw(chart) {
+                if (!showLabels) return;
+                
+                const { ctx, scales: { x, y } } = chart;
+                ctx.save();
+                ctx.font = '600 13px "Open Sans"';
+                ctx.fillStyle = chartColors.valueLabels;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+                // Iterar sobre cada año (barra horizontal)
+                years.forEach((year, yearIndex) => {
+                    let cumulativeWidth = 0;
+                    
+                    // Iterar sobre cada categoría (segmento)
+                    categories.forEach((category, categoryIndex) => {
+                        const value = chart.data.datasets[categoryIndex].data[yearIndex];
+                        
+                        // Solo mostrar etiqueta si el valor supera el umbral
+                        if (value >= labelThreshold) {
+                            const meta = chart.getDatasetMeta(categoryIndex);
+                            const bar = meta.data[yearIndex];
+                            
+                            if (bar) {
+                                // Calcular posición en el centro del segmento
+                                const xPos = bar.x + (bar.width / 2);
+                                const yPos = bar.y;
+                                
+                                // Dibujar texto con sombra para mejor legibilidad
+                                ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+                                ctx.shadowBlur = 4;
+                                ctx.shadowOffsetX = 1;
+                                ctx.shadowOffsetY = 1;
+                                
+                                ctx.fillText(
+                                    value.toFixed(1) + '%',
+                                    xPos,
+                                    yPos
+                                );
+                                
+                                ctx.shadowColor = 'transparent';
+                                ctx.shadowBlur = 0;
+                                ctx.shadowOffsetX = 0;
+                                ctx.shadowOffsetY = 0;
+                            }
+                        }
+                    });
+                });
+                
+                ctx.restore();
+            }
+        };
+        
+        // Configuración del gráfico
+        const chartConfig = {
+            type: 'bar',
+            data: {
+                labels: years,
+                datasets: datasets
+            },
+            options: {
+                indexAxis: 'y',  // Hacer el gráfico horizontal
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            font: {
+                                family: 'Open Sans',
+                                size: 14,
+                                weight: '600'
+                            },
+                            color: chartColors.axisLabels,
+                            padding: 20,
+                            usePointStyle: true,
+                            pointStyle: 'rectRounded',
+                            boxWidth: 15,
+                            boxHeight: 15
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Evolución de Participación por Categoría (2023-2025)',
+                        font: {
+                            family: 'Montserrat',
+                            size: 24,
+                            weight: '700'
+                        },
+                        color: chartColors.chartTitle,
+                        padding: {
+                            top: 10,
+                            bottom: 30
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleFont: {
+                            family: 'Open Sans',
+                            size: 14,
+                            weight: '600'
+                        },
+                        bodyFont: {
+                            family: 'Open Sans',
+                            size: 13
+                        },
+                        padding: 12,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + context.parsed.x.toFixed(1) + '%';
+                            },
+                            afterBody: function(tooltipItems) {
+                                const yearIndex = tooltipItems[0].dataIndex;
+                                let total = 0;
+                                
+                                categories.forEach((cat, index) => {
+                                    total += datasets[index].data[yearIndex];
+                                });
+                                
+                                return '\nTotal: ' + total.toFixed(1) + '%';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        stacked: true,
+                        min: 0,
+                        max: 100,
+                        grid: {
+                            color: chartColors.gridLines,
+                            drawBorder: false
+                        },
+                        border: {
+                            color: chartColors.border,
+                            width: 2
+                        },
+                        ticks: {
+                            font: {
+                                family: 'Open Sans',
+                                size: 12
+                            },
+                            color: chartColors.axisText,
+                            callback: function(value) {
+                                return value + '%';
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Porcentaje de Participación (%)',
+                            font: {
+                                family: 'Open Sans',
+                                size: 16,
+                                weight: '600'
+                            },
+                            color: chartColors.axisLabels,
+                            padding: {
+                                top: 15
+                            }
+                        }
+                    },
+                    y: {
+                        stacked: true,
+                        grid: {
+                            display: false
+                        },
+                        border: {
+                            color: chartColors.border,
+                            width: 2
+                        },
+                        ticks: {
+                            font: {
+                                family: 'Open Sans',
+                                size: 14,
+                                weight: '600'
+                            },
+                            color: chartColors.axisText
+                        },
+                        title: {
+                            display: true,
+                            text: 'Años',
+                            font: {
+                                family: 'Open Sans',
+                                size: 16,
+                                weight: '600'
+                            },
+                            color: chartColors.axisLabels,
+                            padding: {
+                                bottom: 15
+                            }
+                        }
+                    }
+                },
+                barThickness: 80
+            },
+            plugins: [labelPlugin]
+        };
+        
+        // Crear el gráfico
+        const categoryChart = new Chart(ctx, chartConfig);
+        
+        // ==================== CONTROLES INTERACTIVOS ====================
+        // Control para mostrar/ocultar etiquetas
+        document.getElementById('showLabels').addEventListener('change', function(e) {
+            showLabels = e.target.checked;
+            categoryChart.update();
+        });
+    </script>
+</body>
+</html>
