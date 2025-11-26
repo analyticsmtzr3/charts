@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canales de Atribución</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Open Sans', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        h1 {
+            font-family: 'Montserrat', sans-serif;
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+            max-width: 1200px;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+        
+        .control-group {
+            display: flex;
+            align-items: center;
+        }
+        
+        label {
+            display: inline-block;
+            font-weight: 600;
+            margin-right: 10px;
+            font-size: 14px;
+        }
+        
+        select {
+            padding: 8px 12px;
+            border: 2px solid #E5E7EB;
+            border-radius: 6px;
+            font-family: 'Open Sans', sans-serif;
+            font-size: 14px;
+            cursor: pointer;
+            background: white;
+        }
+        
+        input[type="checkbox"] {
+            margin-right: 5px;
+            cursor: pointer;
+        }
+        
+        .chart-container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            width: 1200px;
+            height: 800px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        canvas {
+            max-width: 100%;
+            max-height: 100%;
+        }
+        
+        .table-container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            margin-top: 20px;
+            max-width: 1200px;
+            width: 100%;
+        }
+        
+        h2 {
+            font-family: 'Montserrat', sans-serif;
+            color: #111827;
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: 'Open Sans', sans-serif;
+        }
+        
+        thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        th {
+            padding: 15px 10px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+        
+        td {
+            padding: 15px 10px;
+            border-bottom: 1px solid #E5E7EB;
+            font-size: 13px;
+        }
+        
+        tbody tr:hover {
+            background: #F9FAFB;
+        }
+        
+        .channel-name {
+            font-weight: 600;
+            color: #1F2937;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .numeric-value {
+            text-align: right;
+            color: #374151;
+        }
+        
+        .center-value {
+            text-align: center;
+        }
+        
+        .change-cell {
+            text-align: center;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+        
+        .positive {
+            color: #10B981;
+        }
+        
+        .negative {
+            color: #EF4444;
+        }
+        
+        .neutral {
+            color: #6B7280;
+        }
+        
+        .arrow {
+            font-size: 14px;
+            font-weight: bold;
+        }
+        
+        .channel-color {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+        
+        .highlight-row {
+            background: #FEF3C7;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            background: #DBEAFE;
+            color: #1E40AF;
+        }
+        
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .summary-card {
+            background: linear-gradient(135deg, #F3F4F6 0%, #E5E7EB 100%);
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .summary-value {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 24px;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 5px;
+        }
+        
+        .summary-label {
+            font-size: 13px;
+            color: #6B7280;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <h1>Análisis de Canales de Atribución</h1>
+    
+    <div class="controls">
+        <div class="control-group">
+            <label for="yearSelect">Año:</label>
+            <select id="yearSelect">
+                <option value="2024">2024</option>
+                <option value="2025" selected>2025</option>
+            </select>
+        </div>
+        <div class="control-group">
+            <label>
+                <input type="checkbox" id="showLabels" checked>
+                Mostrar porcentajes en el gráfico
+            </label>
+        </div>
+        <div class="control-group">
+            <label>
+                <input type="checkbox" id="showLegend" checked>
+                Mostrar leyenda
+            </label>
+        </div>
+    </div>
+    
+    <div class="chart-container">
+        <canvas id="attributionChart"></canvas>
+    </div>
+    
+    <div class="table-container">
+        <h2>Métricas Detalladas por Canal - 2025</h2>
+        
+        <div class="summary-cards">
+            <div class="summary-card">
+                <div class="summary-value" id="totalSessions">0</div>
+                <div class="summary-label">Total Sesiones</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-value" id="avgConversion">0%</div>
+                <div class="summary-label">Conversión Promedio</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-value" id="totalOrders">0</div>
+                <div class="summary-label">Total Órdenes</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-value" id="totalRevenue">$0</div>
+                <div class="summary-label">Ventas Totales</div>
+            </div>
+        </div>
+        
+        <table id="channelTable">
+            <thead>
+                <tr>
+                    <th>Canal</th>
+                    <th style="text-align: right;">Sesiones</th>
+                    <th style="text-align: center;">% Conversión</th>
+                    <th style="text-align: right;">Órdenes</th>
+                    <th style="text-align: right;">Valor Ventas</th>
+                    <th style="text-align: center;">Participación</th>
+                    <th style="text-align: center;">Cambio vs 2024</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        // ==================== CONFIGURACIÓN DE COLORES ====================
+        // Colores para cada canal de atribución
+        const channelColors = {
+            organic: '#10B981',      // Verde - Búsqueda Orgánica
+            paid: '#3B82F6',         // Azul - Publicidad Pagada
+            social: '#8B5CF6',       // Púrpura - Redes Sociales
+            direct: '#F59E0B',       // Naranja - Directo
+            email: '#EC4899',        // Rosa - Email Marketing
+            referral: '#14B8A6',     // Teal - Referencias
+            affiliate: '#EF4444'     // Rojo - Afiliados
+        };
+        
+        // Colores del gráfico
+        const chartColors = {
+            valueLabels: '#FFFFFF',      // Color de las etiquetas de valores (blanco)
+            chartTitle: '#111827',       // Color del título del gráfico
+            legendText: '#374151'        // Color del texto de la leyenda
+        };
+        
+        // ==================== CONFIGURACIÓN DE FORMATO DE VALORES ====================
+        // Opciones de formato para valores monetarios:
+        // 'COP' - Pesos colombianos
+        // 'USD' - Dólares estadounidenses
+        // 'thousands' - Mostrar en miles (K)
+        // 'millions' - Mostrar en millones (M)
+        
+        const valueFormat = 'COP';  // Cambiar aquí el formato deseado
+        
+        // Función para formatear valores monetarios
+        function formatCurrency(value) {
+            switch(valueFormat) {
+                case 'COP':
+                    return new Intl.NumberFormat('es-CO', {
+                        style: 'currency',
+                        currency: 'COP',
+                        minimumFractionDigits: 0
+                    }).format(value);
+                    
+                case 'USD':
+                    return new Intl.NumberFormat('en-US', {
+                        style: 'currency',
+                        currency: 'USD',
+                        minimumFractionDigits: 0
+                    }).format(value);
+                    
+                case 'thousands':
+                    return '$' + (value / 1000).toFixed(1) + 'K';
+                    
+                case 'millions':
+                    return '$' + (value / 1000000).toFixed(2) + 'M';
+                    
+                default:
+                    return '$' + value.toLocaleString('es-CO');
+            }
+        }
+        
+        // Función para formatear números
+        function formatNumber(value) {
+            return value.toLocaleString('es-CO');
+        }
+        
+        // ==================== DATOS DE CANALES DE ATRIBUCIÓN ====================
+        // Nombres de los canales
+        const channels = [
+            'Búsqueda Orgánica',
+            'Publicidad Pagada',
+            'Redes Sociales',
+            'Directo',
+            'Email Marketing',
+            'Referencias',
+            'Afiliados'
+        ];
+        
+        // Datos por año - Valores en pesos colombianos (COP)
+        const channelData = {
+            2024: {
+                sessions: [450000, 280000, 320000, 180000, 95000, 120000, 75000],
+                conversion: [3.2, 4.5, 2.8, 5.1, 6.2, 3.9, 4.8],
+                orders: [14400, 12600, 8960, 9180, 5890, 4680, 3600],
+                revenue: [720000000, 630000000, 448000000, 459000000, 294500000, 234000000, 180000000]
+            },
+            2025: {
+                sessions: [520000, 310000, 380000, 195000, 105000, 145000, 85000],
+                conversion: [3.5, 4.8, 3.1, 5.4, 6.8, 4.2, 5.1],
+                orders: [18200, 14880, 11780, 10530, 7140, 6090, 4335],
+                revenue: [910000000, 744000000, 589000000, 526500000, 357000000, 304500000, 216750000]
+            }
+        };
+        
+        // ==================== CÁLCULOS Y CONSTRUCCIÓN DE TABLA ====================
+        let currentYear = 2025;
+        
+        function calculateParticipation(revenue, totalRevenue) {
+            return (revenue / totalRevenue) * 100;
+        }
+        
+        function buildTable(year) {
+            const tableBody = document.getElementById('tableBody');
+            tableBody.innerHTML = '';
+            
+            const data = channelData[year];
+            const prevData = channelData[year - 1];
+            const colorsArray = Object.values(channelColors);
+            
+            const totalRevenue = data.revenue.reduce((sum, val) => sum + val, 0);
+            const prevTotalRevenue = prevData.revenue.reduce((sum, val) => sum + val, 0);
+            
+            const totalSessions = data.sessions.reduce((sum, val) => sum + val, 0);
+            const totalOrders = data.orders.reduce((sum, val) => sum + val, 0);
+            const avgConversion = (totalOrders / totalSessions) * 100;
+            
+            // Actualizar tarjetas de resumen
+            document.getElementById('totalSessions').textContent = formatNumber(totalSessions);
+            document.getElementById('avgConversion').textContent = avgConversion.toFixed(2) + '%';
+            document.getElementById('totalOrders').textContent = formatNumber(totalOrders);
+            document.getElementById('totalRevenue').textContent = formatCurrency(totalRevenue);
+            
+            // Crear filas de la tabla
+            channels.forEach((channel, index) => {
+                const sessions = data.sessions[index];
+                const conversion = data.conversion[index];
+                const orders = data.orders[index];
+                const revenue = data.revenue[index];
+                const participation = calculateParticipation(revenue, totalRevenue);
+                
+                const prevRevenue = prevData.revenue[index];
+                const prevParticipation = calculateParticipation(prevRevenue, prevTotalRevenue);
+                const change = participation - prevParticipation;
+                
+                let changeClass = 'neutral';
+                let arrow = '●';
+                
+                if (change > 0.5) {
+                    changeClass = 'positive';
+                    arrow = '▲';
+                } else if (change < -0.5) {
+                    changeClass = 'negative';
+                    arrow = '▼';
+                }
+                
+                const isTopChannel = participation >= 20;
+                
+                const row = document.createElement('tr');
+                if (isTopChannel) {
+                    row.className = 'highlight-row';
+                }
+                
+                row.innerHTML = `
+                    <td>
+                        <div class="channel-name">
+                            <span class="channel-color" style="background-color: ${colorsArray[index]};"></span>
+                            ${channel}
+                            ${isTopChannel ? '<span class="badge">TOP</span>' : ''}
+                        </div>
+                    </td>
+                    <td class="numeric-value">${formatNumber(sessions)}</td>
+                    <td class="center-value">${conversion.toFixed(2)}%</td>
+                    <td class="numeric-value">${formatNumber(orders)}</td>
+                    <td class="numeric-value">${formatCurrency(revenue)}</td>
+                    <td class="center-value" style="font-weight: 600;">${participation.toFixed(1)}%</td>
+                    <td>
+                        <div class="change-cell ${changeClass}">
+                            <span class="arrow">${arrow}</span>
+                            <span>${change > 0 ? '+' : ''}${change.toFixed(1)}%</span>
+                        </div>
+                    </td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+        }
+        
+        // ==================== CONFIGURACIÓN DEL GRÁFICO DONUT ====================
+        const ctx = document.getElementById('attributionChart').getContext('2d');
+        let showLabels = true;
+        let showLegend = true;
+        
+        function updateChart(year) {
+            const data = channelData[year];
+            const colorsArray = Object.values(channelColors);
+            
+            attributionChart.data.datasets[0].data = data.revenue;
+            attributionChart.data.datasets[0].backgroundColor = colorsArray;
+            attributionChart.data.datasets[0].borderColor = colorsArray.map(color => color);
+            
+            attributionChart.options.plugins.title.text = `Participación por Canal de Atribución - ${year}`;
+            attributionChart.options.plugins.legend.display = showLegend;
+            
+            attributionChart.update();
+        }
+        
+        // Configuración del gráfico donut
+        const chartConfig = {
+            type: 'doughnut',
+            data: {
+                labels: channels,
+                datasets: [{
+                    data: channelData[2025].revenue,
+                    backgroundColor: Object.values(channelColors),
+                    borderColor: '#FFFFFF',
+                    borderWidth: 3,
+                    hoverBorderWidth: 5,
+                    hoverOffset: 15
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                cutout: '65%',
+                plugins: {
+                    legend: {
+                        display: showLegend,
+                        position: 'right',
+                        labels: {
+                            font: {
+                                family: 'Open Sans',
+                                size: 14,
+                                weight: '600'
+                            },
+                            color: chartColors.legendText,
+                            padding: 15,
+                            usePointStyle: true,
+                            pointStyle: 'circle',
+                            generateLabels: function(chart) {
+                                const data = chart.data;
+                                const total = data.datasets[0].data.reduce((sum, val) => sum + val, 0);
+                                
+                                return data.labels.map((label, i) => {
+                                    const value = data.datasets[0].data[i];
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    
+                                    return {
+                                        text: `${label}: ${percentage}%`,
+                                        fillStyle: data.datasets[0].backgroundColor[i],
+                                        hidden: false,
+                                        index: i
+                                    };
+                                });
+                            }
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Participación por Canal de Atribución - 2025',
+                        font: {
+                            family: 'Montserrat',
+                            size: 26,
+                            weight: '700'
+                        },
+                        color: chartColors.chartTitle,
+                        padding: {
+                            top: 10,
+                            bottom: 30
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleFont: {
+                            family: 'Open Sans',
+                            size: 15,
+                            weight: '600'
+                        },
+                        bodyFont: {
+                            family: 'Open Sans',
+                            size: 14
+                        },
+                        padding: 15,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed;
+                                const total = context.dataset.data.reduce((sum, val) => sum + val, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                
+                                return [
+                                    `${label}`,
+                                    `Ventas: ${formatCurrency(value)}`,
+                                    `Participación: ${percentage}%`
+                                ];
+                            }
+                        }
+                    },
+                    datalabels: showLabels ? {
+                        color: chartColors.valueLabels,
+                        font: {
+                            family: 'Open Sans',
+                            size: 13,
+                            weight: '600'
+                        },
+                        formatter: function(value, context) {
+                            const total = context.dataset.data.reduce((sum, val) => sum + val, 0);
+                            const percentage = ((value / total) * 100).toFixed(1);
+                            return percentage + '%';
+                        }
+                    } : false
+                },
+                animation: {
+                    animateRotate: true,
+                    animateScale: true
+                }
+            }
+        };
+        
+        // Crear el gráfico
+        const attributionChart = new Chart(ctx, chartConfig);
+        
+        // ==================== CONTROLES INTERACTIVOS ====================
+        // Construir tabla inicial
+        buildTable(currentYear);
+        
+        // Control de año
+        document.getElementById('yearSelect').addEventListener('change', function(e) {
+            currentYear = parseInt(e.target.value);
+            updateChart(currentYear);
+            buildTable(currentYear);
+        });
+        
+        // Control para mostrar/ocultar etiquetas
+        document.getElementById('showLabels').addEventListener('change', function(e) {
+            showLabels = e.target.checked;
+            attributionChart.options.plugins.datalabels = showLabels ? {
+                color: chartColors.valueLabels,
+                font: {
+                    family: 'Open Sans',
+                    size: 13,
+                    weight: '600'
+                },
+                formatter: function(value, context) {
+                    const total = context.dataset.data.reduce((sum, val) => sum + val, 0);
+                    const percentage = ((value / total) * 100).toFixed(1);
+                    return percentage + '%';
+                }
+            } : false;
+            attributionChart.update();
+        });
+        
+        // Control para mostrar/ocultar leyenda
+        document.getElementById('showLegend').addEventListener('change', function(e) {
+            showLegend = e.target.checked;
+            attributionChart.options.plugins.legend.display = showLegend;
+            attributionChart.update();
+        });
+    </script>
+</body>
+</html>
